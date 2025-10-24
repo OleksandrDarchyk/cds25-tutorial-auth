@@ -9,3 +9,6 @@ fi
 docker compose down --volumes --remove-orphans && docker compose up -d
 # Run code found in DbSeeder.cs to insert some testdata in the database
 dotnet run --project server/Api --watch setup "$1"
+
+
+#./setup.sh NewPassword123 створюємо новий контейнер з базою даних та додаємо тестові дані з паролем NewPassword123

@@ -1,9 +1,11 @@
 using Api.Etc;
 using Api.Etc.NSwag;
+using Api.Security;
 using Api.Services;
 using DataAccess;
 using DataAccess.Entities;
 using DataAccess.Repositories;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -41,14 +43,17 @@ public class Program
         );
         builder.Services.AddScoped<DbSeeder>();
 
-        // Repositories
+        // Repositories - це доступ до бази даних
         builder.Services.AddScoped<IRepository<User>, UserRepository>();
         builder.Services.AddScoped<IRepository<Post>, PostRepository>();
         builder.Services.AddScoped<IRepository<Comment>, CommentRepository>();
 
-        // Services
+        // Services - це бізнес-логіка
         builder.Services.AddScoped<IBlogService, BlogService>();
         builder.Services.AddScoped<IDraftService, DraftService>();
+        builder.Services.AddScoped<IAuthService, AuthService>();
+        // тут я імпортував свій реалізацію хешування паролів
+        builder.Services.AddScoped<IPasswordHasher<User>, MyNSecArgon2idPasswordHasher>();
 
         builder.Services.AddControllers();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
