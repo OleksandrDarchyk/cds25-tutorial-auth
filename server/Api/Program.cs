@@ -5,6 +5,7 @@ using Api.Services;
 using DataAccess;
 using DataAccess.Entities;
 using DataAccess.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,20 +43,53 @@ public class Program
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
         );
         builder.Services.AddScoped<DbSeeder>();
+        // Argon2id, scrypt and becrypt are better algorithms, but require 3rd party libraries
+        builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
-        // Repositories - це доступ до бази даних
+        // Repositories
         builder.Services.AddScoped<IRepository<User>, UserRepository>();
         builder.Services.AddScoped<IRepository<Post>, PostRepository>();
         builder.Services.AddScoped<IRepository<Comment>, CommentRepository>();
 
-        // Services - це бізнес-логіка
+        // Services
         builder.Services.AddScoped<IBlogService, BlogService>();
         builder.Services.AddScoped<IDraftService, DraftService>();
         builder.Services.AddScoped<IAuthService, AuthService>();
-        // тут я імпортував свій реалізацію хешування паролів
-        builder.Services.AddScoped<IPasswordHasher<User>, MyNSecArgon2idPasswordHasher>();
+
+        // Authentication & Authorization
+        builder.Services.AddScoped<ITokenService, JwtService>();
+        builder
+            .Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = JwtService.ValidationParameters(
+                    builder.Configuration
+                );
+                // Add this for debugging
+                options.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = context =>
+                    {
+                        Console.WriteLine($"Authentication failed: {context.Exception}");
+                        return Task.CompletedTask;
+                    },
+                    OnTokenValidated = context =>
+                    {
+                        Console.WriteLine("Token validated successfully");
+                        return Task.CompletedTask;
+                    },
+                };
+            });
+        builder.Services.AddAuthorization();
 
         builder.Services.AddControllers();
+
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
         builder.Services.AddOpenApiDocument(conf =>
@@ -90,6 +124,7 @@ public class Program
         // app.UseHttpsRedirection();
         app.UseExceptionHandler();
 
+        app.UseAuthentication();
         app.UseAuthorization();
 
         app.MapControllers();

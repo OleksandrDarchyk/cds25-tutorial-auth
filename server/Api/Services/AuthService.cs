@@ -1,11 +1,11 @@
-//Requests — це що надсилає клієнт (React) у запиті.
-
-//Responses — це що сервер віддає назад клієнту у відповіді.
-
 using System.ComponentModel.DataAnnotations;
+using System.Security.Authentication;
+using System.Security.Claims;
 using Api.Etc;
+using Api.Mappers;
 using Api.Models.Dtos.Requests;
 using Api.Models.Dtos.Responses;
+using Api.Security;
 using DataAccess.Entities;
 using DataAccess.Repositories;
 using Microsoft.AspNetCore.Identity;
@@ -14,59 +14,64 @@ namespace Api.Services;
 
 public interface IAuthService
 {
-    //тут я перевірю меіл і логін
-    //
     AuthUserInfo Authenticate(LoginRequest request);
-    //тут я створю нового користувача
     Task<AuthUserInfo> Register(RegisterRequest request);
+    AuthUserInfo? GetUserInfo(ClaimsPrincipal principal);
 }
 
 public class AuthService(
-    ILogger<AuthService> _logger,//logger
-    IPasswordHasher<User> _passwordHasher,//password hasher
-    IRepository<User> _userRepository//user repository
-    ):IAuthService//here we implement interface
+    ILogger<AuthService> _logger,
+    IPasswordHasher<User> _passwordHasher,
+    IRepository<User> _userRepository
+) : IAuthService
 {
-  
-    
-    public AuthUserInfo Authenticate(LoginRequest request)//here we check login
+    public AuthUserInfo Authenticate(LoginRequest request)
     {
         try
         {
-            
-        
-        // _userRepository — об’єкт, який дає доступ до таблиці користувачів через код;
-        //Single тільки треба один користувач
-      var  user = _userRepository.Query().Single(u=>u.Email==request.Email);//try to find user by email in db
-      var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);//verify password
-      if (result == PasswordVerificationResult.Success)//if password is correct
-      {
-          return new AuthUserInfo(user.Id, user.UserName, user.Role);//return user info but without password
-      }
-      
-        }catch(Exception e)
-        {
-            _logger.LogError(e.Message);
+            var entity = _userRepository.Query().Single(u => u.Email == request.Email);
+            var isAuthenticated = _passwordHasher.VerifyHashedPassword(
+                entity,
+                entity.PasswordHash,
+                request.Password
+            );
+            if (isAuthenticated == PasswordVerificationResult.Success)
+            {
+                return entity.ToDto();
+            }
         }
+        catch (Exception e)
+        {
+            _logger.LogError("Authenticate error: {Message}", e);
+        }
+
         throw new AuthenticationError();
     }
-    
 
-    public async Task<AuthUserInfo> Register(RegisterRequest request)//here we create new user
+    public async Task<AuthUserInfo> Register(RegisterRequest request)
     {
-        if(_userRepository.Query().Any(u=>u.Email==request.Email))//if user with this email already exists
+        if (_userRepository.Query().Any(u => u.Email == request.Email))
         {
-            throw new ValidationException("Email already in use");//throw exception
+            throw new ValidationException("Email already exists.");
         }
-
-        var user = new User()//create new user
+        var entity = new User()
         {
-            Email = request.Email,
             UserName = request.UserName,
+            Email = request.Email,
+            Role = Role.Reader,
         };
-       user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);//hash password
-       await _userRepository.Add(user);//add user to db
-       return new AuthUserInfo(user.Id, user.UserName, user.Role);//return user info but without password
-       
+        entity.PasswordHash = _passwordHasher.HashPassword(entity, request.Password);
+        await _userRepository.Add(entity);
+        return entity.ToDto();
+    }
+
+    public AuthUserInfo? GetUserInfo(ClaimsPrincipal principal)
+    {
+        var userId = principal.GetUserId();
+        return _userRepository
+            .Query()
+            .Where(user => user.Id == userId)
+            .SingleOrDefault()
+            ?.ToDto();
     }
 }
