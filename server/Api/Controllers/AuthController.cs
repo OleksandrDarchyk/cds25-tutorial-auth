@@ -2,6 +2,7 @@ using Api.Models.Dtos.Requests;
 using Api.Models.Dtos.Responses;
 using Api.Security;
 using Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
@@ -12,6 +13,7 @@ public class AuthController(IAuthService service,ITokenService tokenService ) : 
 {
     [HttpPost] // 🔹 Атрибут: метод буде обробляти HTTP POST-запити
     [Route("login")] // 🔹 Вказує маршрут: /login
+    [AllowAnonymous]
     public async Task<LoginResponse> Login([FromBody] LoginRequest request)
     {
         // 🔸 1️⃣ Отримуємо дані користувача (AuthUserInfo) після перевірки логіну/пароля
@@ -30,6 +32,7 @@ public class AuthController(IAuthService service,ITokenService tokenService ) : 
 
     [HttpPost]
     [Route("register")]
+    [AllowAnonymous]
     public async Task<RegisterResponse> Register([FromBody] RegisterRequest request)
     {
         var userInfo = await service.Register(request);

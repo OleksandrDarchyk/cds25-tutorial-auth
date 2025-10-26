@@ -6,6 +6,7 @@ using DataAccess;
 using DataAccess.Entities;
 using DataAccess.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -86,7 +87,13 @@ public class Program
                     },
                 };
             });
-        builder.Services.AddAuthorization();
+        builder.Services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                // Globally require users to be authenticated
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         builder.Services.AddControllers();
 
